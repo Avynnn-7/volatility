@@ -1,0 +1,26 @@
+# Build artifacts
+build/
+
+# Visual Studio artifacts
+*.sln
+*.vcxproj*
+*.vcxproj.filters
+*.vcxproj.user
+*.user
+
+# CMake artifacts
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Binaries
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+
+# OS files
+Thumbs.db
+.DS_Store
