@@ -177,6 +177,20 @@ std::vector<ArbViolation> ArbitrageDetector::detect() const {
     auto v1 = checkButterfly();
     auto v2 = checkCalendar();
     auto v3 = checkMonotonicity();
+    
+    if (config_.enableExtremeValueCheck) {
+        auto v4 = checkExtremeValues();
+        v1.insert(v1.end(), v4.begin(), v4.end());
+    }
+    
+    if (config_.enableDensityCheck) {
+        auto v5 = checkDensityIntegrity();
+        v1.insert(v1.end(), v5.begin(), v5.end());
+    }
+    
+    auto v6 = checkVerticalSpread();
+    v1.insert(v1.end(), v6.begin(), v6.end());
+    
     v1.insert(v1.end(), v2.begin(), v2.end());
     v1.insert(v1.end(), v3.begin(), v3.end());
     return v1;
@@ -191,15 +205,146 @@ void ArbitrageDetector::report(const std::vector<ArbViolation>& violations) {
         return;
     }
     std::cout << "\n=== Arbitrage Violations (" << violations.size() << ") ===\n";
-    for (const auto& v : violations) {
+    
+    // Sort by severity (critical first)
+    auto sortedViols = violations;
+    std::sort(sortedViols.begin(), sortedViols.end(), 
+              [](const ArbViolation& a, const ArbViolation& b) {
+                  return a.severityScore() > b.severityScore();
+              });
+    
+    for (const auto& v : sortedViols) {
         std::string type;
         switch (v.type) {
             case ArbType::ButterflyViolation:    type = "[BUTTERFLY]";    break;
             case ArbType::CalendarViolation:     type = "[CALENDAR]";     break;
             case ArbType::MonotonicityViolation: type = "[MONOTONICITY]"; break;
+            case ArbType::VerticalSpreadViolation: type = "[VERTICAL]";     break;
+            case ArbType::ExtremeValueViolation: type = "[EXTREME]";      break;
+            case ArbType::DensityIntegrityViolation: type = "[DENSITY]";   break;
         }
-        std::cout << std::setw(16) << type << "  " << v.description
-                  << "  (mag=" << std::scientific << std::setprecision(3) << v.magnitude << ")\n";
+        
+        std::string severity = v.isCritical() ? " [CRITICAL]" : "";
+        std::cout << std::setw(16) << type << severity << "  " << v.description
+                  << "  (severity=" << std::fixed << std::setprecision(3) << v.severityScore() << ")\n";
     }
     std::cout << "\n";
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Additional enhanced arbitrage checks
+// ──────────────────────────────────────────────────────────────────────────────
+std::vector<ArbViolation> ArbitrageDetector::checkExtremeValues() const {
+    std::vector<ArbViolation> viols;
+    const auto& Ks = surface_.strikes();
+    const auto& Ts = surface_.expiries();
+
+    for (double T : Ts) {
+        for (double K : Ks) {
+            double iv = surface_.impliedVol(K, T);
+            
+            if (iv > config_.extremeValueThreshold || iv < 0.01) {
+                ArbViolation viol;
+                viol.type = ArbType::ExtremeValueViolation;
+                viol.strike = K;
+                viol.expiry = T;
+                viol.magnitude = iv;
+                viol.threshold = config_.extremeValueThreshold;
+                viol.description = "Extreme IV: " + std::to_string(iv * 100) + "% at K=" + 
+                    std::to_string(K) + ", T=" + std::to_string(T);
+                viols.push_back(viol);
+            }
+        }
+    }
+    return viols;
+}
+
+std::vector<ArbViolation> ArbitrageDetector::checkVerticalSpread() const {
+    std::vector<ArbViolation> viols;
+    const auto& Ks = surface_.strikes();
+    const auto& Ts = surface_.expiries();
+
+    for (double T : Ts) {
+        for (int i = 0; i + 1 < (int)Ks.size(); ++i) {
+            double K1 = Ks[i], K2 = Ks[i + 1];
+            double C1 = surface_.callPrice(K1, T);
+            double C2 = surface_.callPrice(K2, T);
+            
+            // Vertical spread should not exceed intrinsic value difference
+            double spreadValue = C1 - C2;
+            double maxAllowed = K2 - K1;
+            
+            if (spreadValue > maxAllowed + config_.verticalSpreadThreshold) {
+                ArbViolation viol;
+                viol.type = ArbType::VerticalSpreadViolation;
+                viol.strike = (K1 + K2) / 2.0;  // Midpoint
+                viol.expiry = T;
+                viol.magnitude = spreadValue - maxAllowed;
+                viol.threshold = config_.verticalSpreadThreshold;
+                viol.description = "Vertical spread: C(" + std::to_string(K1) + ") - C(" + 
+                    std::to_string(K2) + ") = " + std::to_string(spreadValue) + 
+                    " > " + std::to_string(maxAllowed) + " at T=" + std::to_string(T);
+                viols.push_back(viol);
+            }
+        }
+    }
+    return viols;
+}
+
+std::vector<ArbViolation> ArbitrageDetector::checkDensityIntegrity() const {
+    std::vector<ArbViolation> viols;
+    const auto& Ts = surface_.expiries();
+
+    for (double T : Ts) {
+        double integral = integrateDensity(T);
+        double error = std::abs(integral - 1.0);
+        
+        if (error > config_.densityIntegrityThreshold) {
+            ArbViolation viol;
+            viol.type = ArbType::DensityIntegrityViolation;
+            viol.strike = 0.0;  // Not applicable
+            viol.expiry = T;
+            viol.magnitude = error;
+            viol.threshold = config_.densityIntegrityThreshold;
+            viol.description = "Density integral: " + std::to_string(integral) + 
+                " (error=" + std::to_string(error) + ") at T=" + std::to_string(T);
+            viols.push_back(viol);
+        }
+    }
+    return viols;
+}
+
+double ArbitrageDetector::integrateDensity(double T) const {
+    // Simple trapezoidal integration of risk-neutral density
+    const auto& Ks = surface_.strikes();
+    if (Ks.size() < 2) return 1.0;
+    
+    double integral = 0.0;
+    for (int i = 0; i + 1 < (int)Ks.size(); ++i) {
+        double K1 = Ks[i], K2 = Ks[i + 1];
+        double density1 = d2CdK2(K1, T, adaptiveStepSize(K1, T));
+        double density2 = d2CdK2(K2, T, adaptiveStepSize(K2, T));
+        
+        integral += 0.5 * (density1 + density2) * (K2 - K1);
+    }
+    return integral;
+}
+
+double ArbitrageDetector::getQualityScore() const {
+    auto violations = detect();
+    if (violations.empty()) return 1.0;
+    
+    double totalSeverity = 0.0;
+    int criticalCount = 0;
+    
+    for (const auto& v : violations) {
+        totalSeverity += v.severityScore();
+        if (v.isCritical()) criticalCount++;
+    }
+    
+    // Penalize critical violations heavily
+    double criticalPenalty = criticalCount * 0.3;
+    double severityPenalty = std::min(0.7, totalSeverity / violations.size());
+    
+    return std::max(0.0, 1.0 - criticalPenalty - severityPenalty);
 }
