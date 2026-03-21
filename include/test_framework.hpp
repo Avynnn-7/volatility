@@ -832,7 +832,7 @@ public:
         return totalFailed;
     }
     
-    void runSuite(const std::string& suiteName) {
+    void runSuite(const std::string& /*suiteName*/) {
         // Not implemented in this version
     }
     

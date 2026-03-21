@@ -230,10 +230,12 @@ std::pair<std::vector<Quote>, MarketData> DataHandler::loadFromCSV() const {
                     quotes.push_back(quote);
                 }
             } catch (const std::invalid_argument& e) {
+                (void)e;
                 // Skip rows with non-numeric data (log if needed)
                 std::cerr << "Warning: Skipping CSV row with invalid numeric data: " << line << std::endl;
                 continue;
             } catch (const std::out_of_range& e) {
+                (void)e;
                 // Skip rows with values too large for double
                 std::cerr << "Warning: Skipping CSV row with out-of-range value: " << line << std::endl;
                 continue;
@@ -298,7 +300,7 @@ void DataHandler::removeDuplicates(std::vector<Quote>& quotes) const {
             return false;
         });
     
-    int removedCount = std::distance(newEnd, quotes.end());
+    int removedCount = static_cast<int>(std::distance(newEnd, quotes.end()));
     quotes.erase(newEnd, quotes.end());
     qualityMetrics_.duplicateQuotes = removedCount;
 }

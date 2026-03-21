@@ -140,7 +140,7 @@ std::vector<std::string> SVISurface::getArbitrageViolations() const {
         
         // Check calendar arbitrage
         if (i > 0) {
-            double T_prev = expiries_[i-1];
+            // double T_prev = expiries_[i-1];
             double w_atm_current = params.totalVariance(0.0);
             double w_atm_prev = sviParams_[i-1].totalVariance(0.0);
             
@@ -198,7 +198,6 @@ SVIParams SVISurface::fitSVI(const std::vector<Quote>& quotes, double expiry) co
     for (const auto& q : quotes) {
         double logMoneyness = std::log(q.strike / forward);
         double totalVar = q.iv * q.iv * expiry;
-        double weight = weightFunction(logMoneyness);
         data.emplace_back(logMoneyness, totalVar);
     }
     
@@ -280,7 +279,7 @@ SVIParams SVISurface::calibrateSVI(const std::vector<std::pair<double, double>>&
     }
 }
 
-SVIParams SVISurface::enforceArbitrageConstraints(const SVIParams& params, double expiry) const {
+SVIParams SVISurface::enforceArbitrageConstraints(const SVIParams& params, double /*expiry*/) const {
     SVIParams constrained = params;
     
     // Enforce no-butterfly arbitrage: b >= 0
@@ -440,7 +439,7 @@ Eigen::VectorXd SVICalibrator::solveLMStep(
 }
 
 bool SVICalibrator::checkConvergence(
-    const Eigen::VectorXd& r,
+    const Eigen::VectorXd& /*r*/,
     const Eigen::VectorXd& delta,
     double residualNorm) const 
 {

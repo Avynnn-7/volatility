@@ -338,6 +338,7 @@ void test_error_propagation_empty_quotes() {
     try {
         VolSurface surface(emptyQuotes, marketData);
     } catch (const std::exception& e) {
+        (void)e;
         exceptionThrown = true;
     }
     
