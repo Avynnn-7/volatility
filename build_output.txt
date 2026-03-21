@@ -1,0 +1,108 @@
+MSBuild version 17.12.12+1cce77968 for .NET Framework
+
+  qp_solver.cpp
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(186,24): error C2664: 'OSQPInt osqp_setup(OSQPSolver **,const OSQPCscMatrix *,const OSQPFloat *,const OSQPCscMatrix *,const OSQPFloat *,const OSQPFloat *,OSQPInt,OSQPInt,const OSQPSettings *)': cannot convert argument 1 from 'OSQPWorkspace **' to 'OSQPSolver **' [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+      C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(186,35):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\vcpkg\installed\x64-windows\include\osqp\osqp_api_functions.h(267,18):
+      see declaration of 'osqp_setup'
+      C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(186,24):
+      while trying to match the argument list '(OSQPWorkspace **, OSQPCscMatrix *, _Ty *, OSQPCscMatrix *, _Ty *, _Ty *, OSQPInt, OSQPInt, OSQPSettings *)'
+          with
+          [
+              _Ty=double
+          ]
+  
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(194,20): error C2664: 'OSQPInt osqp_solve(OSQPSolver *)': cannot convert argument 1 from 'OSQPWorkspace *' to 'OSQPSolver *' [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+      C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(194,31):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\vcpkg\installed\x64-windows\include\osqp\osqp_api_functions.h(295,18):
+      see declaration of 'osqp_solve'
+      C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(194,20):
+      while trying to match the argument list '(OSQPWorkspace *)'
+  
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,57): error C2027: use of undefined type 'OSQPWorkspace_' [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+      C:\vcpkg\installed\x64-windows\include\osqp\osqp_api_types.h(175,16):
+      see declaration of 'OSQPWorkspace_'
+  
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,56): error C2440: '<function-style-cast>': cannot convert from 'int' to 'Eigen::Map<Derived,0,Eigen::Stride<0,0>>' [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,56): error C2440:         with [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,56): error C2440:         [ [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,56): error C2440:             Derived=Eigen::Matrix<double,-1,1,0,-1,1> [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,56): error C2440:         ] [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+      C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,56):
+      'Eigen::Map<Derived,0,Eigen::Stride<0,0>>::Map': no overloaded function could convert all the argument types
+          with
+          [
+              Derived=Eigen::Matrix<double,-1,1,0,-1,1>
+          ]
+          C:\vcpkg\installed\x64-windows\include\eigen3\Eigen\src\Core\Map.h(145,3):
+          could be 'Eigen::Map<Derived,0,Eigen::Stride<0,0>>::Map(const Eigen::Map<Derived,0,Eigen::Stride<0,0>> &)'
+          with
+          [
+              Derived=Eigen::Matrix<double,-1,1,0,-1,1>
+          ]
+              C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,56):
+              'Eigen::Map<Derived,0,Eigen::Stride<0,0>>::Map(const Eigen::Map<Derived,0,Eigen::Stride<0,0>> &)': cannot convert argument 1 from 'int' to 'const Eigen::Map<Derived,0,Eigen::Stride<0,0>> &'
+          with
+          [
+              Derived=Eigen::Matrix<double,-1,1,0,-1,1>
+          ]
+                  C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,76):
+                  Reason: cannot convert from 'int' to 'const Eigen::Map<Derived,0,Eigen::Stride<0,0>>'
+          with
+          [
+              Derived=Eigen::Matrix<double,-1,1,0,-1,1>
+          ]
+          C:\vcpkg\installed\x64-windows\include\eigen3\Eigen\src\Core\Map.h(123,21):
+          or       'Eigen::Map<Derived,0,Eigen::Stride<0,0>>::Map(double *,const StrideType &)'
+          with
+          [
+              Derived=Eigen::Matrix<double,-1,1,0,-1,1>,
+              StrideType=Eigen::Stride<0,0>
+          ]
+              C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,56):
+              'Eigen::Map<Derived,0,Eigen::Stride<0,0>>::Map(double *,const StrideType &)': cannot convert argument 1 from 'int' to 'double *'
+          with
+          [
+              Derived=Eigen::Matrix<double,-1,1,0,-1,1>,
+              StrideType=Eigen::Stride<0,0>
+          ]
+                  C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,76):
+                  Conversion from integral type to pointer type requires reinterpret_cast, C-style cast or parenthesized function-style cast
+          C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(198,56):
+          while trying to match the argument list '(int)'
+  
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(199,37): error C2027: use of undefined type 'OSQPWorkspace_' [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+      C:\vcpkg\installed\x64-windows\include\osqp\osqp_api_types.h(175,16):
+      see declaration of 'OSQPWorkspace_'
+  
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(200,33): error C2027: use of undefined type 'OSQPWorkspace_' [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+      C:\vcpkg\installed\x64-windows\include\osqp\osqp_api_types.h(175,16):
+      see declaration of 'OSQPWorkspace_'
+  
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(201,29): error C2027: use of undefined type 'OSQPWorkspace_' [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+      C:\vcpkg\installed\x64-windows\include\osqp\osqp_api_types.h(175,16):
+      see declaration of 'OSQPWorkspace_'
+  
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(215,5): error C2664: 'OSQPInt osqp_cleanup(OSQPSolver *)': cannot convert argument 1 from 'OSQPWorkspace *' to 'OSQPSolver *' [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+      C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(215,18):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\vcpkg\installed\x64-windows\include\osqp\osqp_api_functions.h(317,18):
+      see declaration of 'osqp_cleanup'
+      C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(215,5):
+      while trying to match the argument list '(OSQPWorkspace *)'
+  
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(235,11): warning C4244: 'initializing': conversion from 'Eigen::EigenBase<Derived>::Index' to 'int', possible loss of data [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(235,11): warning C4244:         with [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(235,11): warning C4244:         [ [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(235,11): warning C4244:             Derived=Eigen::Matrix<double,-1,1,0,-1,1> [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp(235,11): warning C4244:         ] [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+  dual_certificate.cpp
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\dual_certificate.cpp(26,9): warning C4189: 'n': local variable is initialized but not referenced [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+  data_handler.cpp
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\data_handler.cpp(284,22): warning C4244: 'initializing': conversion from '__int64' to 'int', possible loss of data [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+  logger.cpp
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\logger.cpp(85,30): warning C4996: 'localtime': This function or variable may be unsafe. Consider using localtime_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.vcxproj]
+  config_manager.cpp
+  Generating Code...

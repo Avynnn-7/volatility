@@ -26,7 +26,16 @@ static void test_flat_surface_no_violations() {
         for (double K : {80.0, 90.0, 100.0, 110.0, 120.0})
             quotes.push_back({K, T, 0.20});
 
-    VolSurface surf(quotes, 100.0);
+    // Create market data with realistic parameters
+    MarketData marketData{
+        100.0,  // spot
+        0.05,   // risk-free rate
+        0.0,    // dividend yield
+        "2024-01-01",  // valuation date
+        "USD"   // currency
+    };
+    
+    VolSurface surf(quotes, marketData);
     ArbitrageDetector det(surf);
     auto viols = det.detect();
     CHECK(viols.empty(), "Flat 20% surface is arbitrage-free");
@@ -45,7 +54,9 @@ static void test_butterfly_detected() {
         {110.0, 0.5, 0.20},   // wing
         {120.0, 0.5, 0.25},   // wing
     };
-    VolSurface surf(quotes, 100.0);
+    
+    MarketData marketData{100.0, 0.05, 0.0, "2024-01-01", "USD"};
+    VolSurface surf(quotes, marketData);
     ArbitrageDetector det(surf);
     auto viols = det.checkButterfly();
     bool found = !viols.empty();
@@ -68,7 +79,9 @@ static void test_calendar_detected() {
         {90.0,  0.50, 0.22}, {110.0, 0.50, 0.21},
         {90.0,  1.00, 0.22}, {110.0, 1.00, 0.22},
     };
-    VolSurface surf(quotes, 100.0);
+    
+    MarketData marketData{100.0, 0.05, 0.0, "2024-01-01", "USD"};
+    VolSurface surf(quotes, marketData);
     ArbitrageDetector det(surf);
     auto viols = det.checkCalendar();
     bool found = !viols.empty();
@@ -87,7 +100,8 @@ static void test_interpolation_bounds() {
         for (double K : {80.0, 100.0, 120.0})
             quotes.push_back({K, T, minIV + (maxIV - minIV) * ((K - 80.0) / 40.0)});
 
-    VolSurface surf(quotes, 100.0);
+    MarketData marketData{100.0, 0.05, 0.0, "2024-01-01", "USD"};
+    VolSurface surf(quotes, marketData);
     bool ok = true;
     for (double K = 81.0; K < 119.0; K += 5.0)
         for (double T = 0.26; T < 0.99; T += 0.1) {

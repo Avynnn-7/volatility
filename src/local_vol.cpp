@@ -1,5 +1,6 @@
 #include "local_vol.hpp"
 #include <cmath>
+#include <algorithm>
 #include <iostream>
 #include <iomanip>
 
@@ -9,29 +10,162 @@ LocalVolSurface::LocalVolSurface(const VolSurface& surface)
     buildGrid();
 }
 
-// ── Finite difference step sizes ─────────────────────────────────────────────
-// Use 1% of the node spacing for numerical stability
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 3 IMPROVEMENT #3: Adaptive Finite Difference Step Sizes
+// Replace fixed step sizes with adaptive computation based on local curvature
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Estimate optimal step size for dC/dT using Richardson extrapolation error analysis
+static double computeOptimalStepT(const VolSurface& surface, double K, double T) {
+    // Rule: h* = (3ε|f|/|f'''|)^(1/3) where ε is machine precision
+    // For option prices: f ≈ O(sqrt(T)), f''' ≈ O(T^(-3/2))
+    
+    const double eps = std::numeric_limits<double>::epsilon();
+    
+    // Estimate |f| = |C(K,T)|
+    double f_val = std::abs(surface.callPrice(K, T));
+    if (f_val < 1e-10) f_val = 1e-10; // Prevent division by zero
+    
+    // Estimate |f'''| using 4th-order finite difference: f''' ≈ [f(t+2h) - 2f(t+h) + 2f(t-h) - f(t-2h)] / (2h³)
+    double h_test = std::min(0.1 * T, 0.01); // Initial test step
+    if (h_test < eps) h_test = eps;
+    
+    const auto& Ts = surface.expiries();
+    double T_min = Ts.front();
+    double T_max = Ts.back();
+    
+    // Clamp evaluation points to valid domain
+    double T1 = std::clamp(T + 2*h_test, T_min, T_max);
+    double T2 = std::clamp(T + h_test, T_min, T_max);
+    double T3 = std::clamp(T - h_test, T_min, T_max);
+    double T4 = std::clamp(T - 2*h_test, T_min, T_max);
+    
+    double f1 = surface.callPrice(K, T1);
+    double f2 = surface.callPrice(K, T2);
+    double f3 = surface.callPrice(K, T3);
+    double f4 = surface.callPrice(K, T4);
+    
+    // Third derivative estimate (handle edge cases gracefully)
+    double f_triple = std::abs(f1 - 2*f2 + 2*f3 - f4) / (2.0 * h_test * h_test * h_test);
+    if (f_triple < 1e-10) f_triple = 1e-10; // Fallback for smooth surfaces
+    
+    // Optimal step: h* = (3ε|f|/|f'''|)^(1/3)
+    double h_opt = std::pow(3.0 * eps * f_val / f_triple, 1.0/3.0);
+    
+    // Clamp to reasonable bounds
+    double h_min = 10.0 * eps;
+    double h_max = std::min(0.1 * T, (T_max - T_min) / 100.0);
+    
+    return std::clamp(h_opt, h_min, h_max);
+}
+
+// Estimate optimal step size for dC/dK using similar analysis
+static double computeOptimalStepK(const VolSurface& surface, double K, double T) {
+    const double eps = std::numeric_limits<double>::epsilon();
+    
+    // Estimate |f| = |C(K,T)|
+    double f_val = std::abs(surface.callPrice(K, T));
+    if (f_val < 1e-10) f_val = 1e-10;
+    
+    // Estimate |f'''| for strike direction
+    double h_test = 0.01 * K; // 1% of current strike
+    if (h_test < eps) h_test = eps;
+    
+    const auto& Ks = surface.strikes();
+    double K_min = Ks.front();
+    double K_max = Ks.back();
+    
+    // Clamp evaluation points
+    double K1 = std::clamp(K + 2*h_test, K_min, K_max);
+    double K2 = std::clamp(K + h_test, K_min, K_max);
+    double K3 = std::clamp(K - h_test, K_min, K_max);
+    double K4 = std::clamp(K - 2*h_test, K_min, K_max);
+    
+    double f1 = surface.callPrice(K1, T);
+    double f2 = surface.callPrice(K2, T);
+    double f3 = surface.callPrice(K3, T);
+    double f4 = surface.callPrice(K4, T);
+    
+    // Third derivative estimate
+    double f_triple = std::abs(f1 - 2*f2 + 2*f3 - f4) / (2.0 * h_test * h_test * h_test);
+    if (f_triple < 1e-10) f_triple = 1e-10;
+    
+    // Optimal step
+    double h_opt = std::pow(3.0 * eps * f_val / f_triple, 1.0/3.0);
+    
+    // Clamp to reasonable bounds
+    double h_min = 10.0 * eps;
+    double h_max = std::min(0.1 * K, (K_max - K_min) / 100.0);
+    
+    return std::clamp(h_opt, h_min, h_max);
+}
+
+// Legacy fixed step functions (fallback)
 static double dK_step(const VolSurface& s) {
     const auto& K = s.strikes();
-    return (K.size() > 1) ? 0.01 * (K.back() - K.front()) : 1.0;
+    if (K.empty()) return 1.0;  // Fallback for empty vector
+    if (K.size() == 1) return 0.01 * K[0];  // Single element: 1% of strike
+    return 0.01 * (K.back() - K.front());
 }
 static double dT_step(const VolSurface& s) {
     const auto& T = s.expiries();
-    return (T.size() > 1) ? 0.01 * (T.back() - T.front()) : 0.01;
+    if (T.empty()) return 0.01;  // Fallback for empty vector
+    if (T.size() == 1) return 0.01 * T[0];  // Single element: 1% of expiry
+    return 0.01 * (T.back() - T.front());
 }
 
 double LocalVolSurface::dCdT(double K, double T) const {
-    double h = dT_step(surface_);
-    double Tlo = T - h, Thi = T + h;
-    // One-sided if near boundary
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 3 IMPROVEMENT #3: Use adaptive step size instead of fixed
+    // ═══════════════════════════════════════════════════════════════════════════
+    double h = computeOptimalStepT(surface_, K, T);
+    
     const auto& Ts = surface_.expiries();
-    if (Tlo < Ts.front()) return (surface_.callPrice(K, T+h) - surface_.callPrice(K, T)) / h;
-    if (Thi > Ts.back())  return (surface_.callPrice(K, T)   - surface_.callPrice(K, T-h)) / h;
-    return (surface_.callPrice(K, T+h) - surface_.callPrice(K, T-h)) / (2.0*h);
+    
+    // Get valid time range
+    double T_min = Ts.front();
+    double T_max = Ts.back();
+    
+    // Clamp T to valid range to handle out-of-bounds queries gracefully
+    double T_clamped = std::clamp(T, T_min, T_max);
+    
+    // Compute candidate points for finite difference
+    double Tlo = T_clamped - h;
+    double Thi = T_clamped + h;
+    
+    // Case 1: Near lower boundary - use forward difference
+    if (Tlo < T_min) {
+        // Adjust step size to stay in bounds if needed
+        h = std::min(h, (T_max - T_clamped) / 2.0);
+        if (h < 1e-8) h = 1e-8;  // Minimum step size
+        
+        double C0 = surface_.callPrice(K, T_clamped);
+        double C1 = surface_.callPrice(K, T_clamped + h);
+        return (C1 - C0) / h;
+    }
+    
+    // Case 2: Near upper boundary - use backward difference
+    if (Thi > T_max) {
+        // Adjust step size to stay in bounds if needed
+        h = std::min(h, (T_clamped - T_min) / 2.0);
+        if (h < 1e-8) h = 1e-8;  // Minimum step size
+        
+        double C0 = surface_.callPrice(K, T_clamped);
+        double C1 = surface_.callPrice(K, T_clamped - h);
+        return (C0 - C1) / h;
+    }
+    
+    // Case 3: Interior point - use centered difference (most accurate)
+    double Clo = surface_.callPrice(K, Tlo);
+    double Chi = surface_.callPrice(K, Thi);
+    return (Chi - Clo) / (2.0 * h);
 }
 
 double LocalVolSurface::d2CdK2(double K, double T) const {
-    double h = dK_step(surface_);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 3 IMPROVEMENT #3: Use adaptive step size for second derivative
+    // ═══════════════════════════════════════════════════════════════════════════
+    double h = computeOptimalStepK(surface_, K, T);
     double Cu = surface_.callPrice(K+h, T);
     double Cm = surface_.callPrice(K,   T);
     double Cd = surface_.callPrice(K-h, T);

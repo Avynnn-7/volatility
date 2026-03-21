@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\CMakeFiles\27d241e65061440488da1362094f4c47\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{27211969-5EEB-3317-809D-1EC9BF4FE4A4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

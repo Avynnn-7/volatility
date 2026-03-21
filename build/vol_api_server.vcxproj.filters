@@ -1,0 +1,49 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\api_server_main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\vol_surface.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\arbitrage_detector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\dual_certificate.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\local_vol.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\svi_surface.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\data_handler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\logger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\config_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\vol_api.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="C:\vcpkg\installed\x64-windows\share\nlohmann_json\nlohmann_json.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{7E94C078-5C91-33BA-A068-36D2D0B39D5A}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

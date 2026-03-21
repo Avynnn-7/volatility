@@ -4,6 +4,14 @@
 #include <cmath>
 #include <algorithm>
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 4 OPTIMIZATION #2: OpenMP Support
+// ═══════════════════════════════════════════════════════════════════════════
+#ifdef VOL_ARB_OPENMP_ENABLED
+#include <omp.h>
+#endif
+// ═══════════════════════════════════════════════════════════════════════════
+
 // ArbViolation severity assessment
 double ArbViolation::severityScore() const {
     // Normalize severity based on violation type and magnitude
@@ -54,11 +62,105 @@ double ArbitrageDetector::adaptiveStepSize(double K, double T) const {
     return std::max(dK, dT);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 3 IMPROVEMENT #3: Adaptive Finite Difference Step Sizes
+// Based on optimal h that minimizes truncation + cancellation error
+// ═══════════════════════════════════════════════════════════════════════════
+
+double ArbitrageDetector::estimate3rdDerivativeK(double K, double T) const {
+    // Estimate f''' using 4-point finite difference
+    // f'''(x) ≈ [-f(x-2h) + 2f(x-h) - 2f(x+h) + f(x+2h)] / (2h³)
+    
+    double h = 0.01 * K;  // Initial coarse step
+    if (h < 1e-6) h = 1e-6;
+    
+    // Check boundaries
+    const auto& Ks = surface_.strikes();
+    double K_min = Ks.front();
+    double K_max = Ks.back();
+    
+    // Fall back to default if near boundary
+    if (K - 2*h < K_min || K + 2*h > K_max) {
+        return 100.0;  // Conservative estimate
+    }
+    
+    double C_m2 = surface_.callPrice(K - 2*h, T);
+    double C_m1 = surface_.callPrice(K - h, T);
+    double C_p1 = surface_.callPrice(K + h, T);
+    double C_p2 = surface_.callPrice(K + 2*h, T);
+    
+    double f3_approx = (-C_m2 + 2*C_m1 - 2*C_p1 + C_p2) / (2 * h * h * h);
+    
+    return std::abs(f3_approx) + 1e-10;  // Add floor to avoid division by zero
+}
+
+double ArbitrageDetector::estimate3rdDerivativeT(double K, double T) const {
+    // Similar to above, but in time direction
+    
+    double h = 0.01 * T;
+    if (h < 1e-6) h = 1e-6;
+    
+    // Need to check boundaries
+    const auto& Ts = surface_.expiries();
+    double T_min = Ts.front();
+    double T_max = Ts.back();
+    
+    if (T - 2*h < T_min || T + 2*h > T_max) {
+        // Fall back to default if near boundary
+        return 100.0;  // Conservative estimate
+    }
+    
+    double C_m2 = surface_.callPrice(K, T - 2*h);
+    double C_m1 = surface_.callPrice(K, T - h);
+    double C_p1 = surface_.callPrice(K, T + h);
+    double C_p2 = surface_.callPrice(K, T + 2*h);
+    
+    double f3_approx = (-C_m2 + 2*C_m1 - 2*C_p1 + C_p2) / (2 * h * h * h);
+    
+    return std::abs(f3_approx) + 1e-10;
+}
+
+double ArbitrageDetector::computeOptimalStepK(double K, double T) const {
+    // Compute optimal step size for strike direction
+    // Based on minimizing: ε_total ≈ (h²/6)|f'''| + (2ε_mach/h)|f|
+    // Optimal h ≈ (3ε_mach|f| / |f'''|)^(1/3)
+    
+    double C = surface_.callPrice(K, T);
+    double f3 = estimate3rdDerivativeK(K, T);
+    
+    const double eps_mach = 2.22e-16;  // Machine epsilon for double
+    double h_opt = std::cbrt(3.0 * eps_mach * std::abs(C) / f3);
+    
+    // Apply safety factor and clamp to bounds
+    h_opt *= adaptiveConfig_.safety_factor;
+    h_opt = std::clamp(h_opt, adaptiveConfig_.h_min_K, adaptiveConfig_.h_max_K);
+    
+    return h_opt;
+}
+
+double ArbitrageDetector::computeOptimalStepT(double K, double T) const {
+    // Compute optimal step size for time direction
+    
+    double C = surface_.callPrice(K, T);
+    double f3 = estimate3rdDerivativeT(K, T);
+    
+    const double eps_mach = 2.22e-16;
+    double h_opt = std::cbrt(3.0 * eps_mach * std::abs(C) / f3);
+    
+    h_opt *= adaptiveConfig_.safety_factor;
+    h_opt = std::clamp(h_opt, adaptiveConfig_.h_min_T, adaptiveConfig_.h_max_T);
+    
+    return h_opt;
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Enhanced finite difference helpers with adaptive step sizes
+// Uses optimal step size when dK/dT is 0, otherwise uses provided step
 // ──────────────────────────────────────────────────────────────────────────────
 double ArbitrageDetector::d2CdK2(double K, double T, double dK) const {
-    double step = dK > 0 ? dK : adaptiveStepSize(K, T);
+    // Use optimal step if dK is 0 or negative
+    double step = (dK > 0) ? dK : computeOptimalStepK(K, T);
+    
     double Cu = surface_.callPrice(K + step, T);
     double Cm = surface_.callPrice(K, T);
     double Cd = surface_.callPrice(K - step, T);
@@ -66,14 +168,40 @@ double ArbitrageDetector::d2CdK2(double K, double T, double dK) const {
 }
 
 double ArbitrageDetector::dCdT(double K, double T, double dT) const {
-    double step = dT > 0 ? dT : adaptiveStepSize(K, T);
-    double Cu = surface_.callPrice(K, T + step);
-    double Cd = surface_.callPrice(K, T - step);
-    return (Cu - Cd) / (2.0 * step);
+    // Use optimal step if dT is 0 or negative
+    double step = (dT > 0) ? dT : computeOptimalStepT(K, T);
+    
+    // Boundary handling (from Phase 2 Fix #6)
+    const auto& Ts = surface_.expiries();
+    double T_min = Ts.front();
+    double T_max = Ts.back();
+    double T_clamped = std::clamp(T, T_min, T_max);
+    
+    double Tlo = T_clamped - step;
+    double Thi = T_clamped + step;
+    
+    // One-sided differences near boundaries
+    if (Tlo < T_min) {
+        double C0 = surface_.callPrice(K, T_clamped);
+        double C1 = surface_.callPrice(K, T_clamped + step);
+        return (C1 - C0) / step;
+    }
+    if (Thi > T_max) {
+        double C0 = surface_.callPrice(K, T_clamped);
+        double C1 = surface_.callPrice(K, T_clamped - step);
+        return (C0 - C1) / step;
+    }
+    
+    // Centered difference (more accurate)
+    double Clo = surface_.callPrice(K, Tlo);
+    double Chi = surface_.callPrice(K, Thi);
+    return (Chi - Clo) / (2.0 * step);
 }
 
 double ArbitrageDetector::dCdK(double K, double T, double dK) const {
-    double step = dK > 0 ? dK : adaptiveStepSize(K, T);
+    // Use optimal step if dK is 0 or negative
+    double step = (dK > 0) ? dK : computeOptimalStepK(K, T);
+    
     double Cu = surface_.callPrice(K + step, T);
     double Cd = surface_.callPrice(K - step, T);
     return (Cu - Cd) / (2.0 * step);
@@ -81,63 +209,187 @@ double ArbitrageDetector::dCdK(double K, double T, double dK) const {
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Enhanced butterfly arbitrage check with configurable thresholds
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 4 OPTIMIZATION #2: OpenMP Parallelization
+// ═══════════════════════════════════════════════════════════════════════════
 // ──────────────────────────────────────────────────────────────────────────────
 std::vector<ArbViolation> ArbitrageDetector::checkButterfly() const {
-    std::vector<ArbViolation> viols;
     const auto& Ks = surface_.strikes();
     const auto& Ts = surface_.expiries();
-
-    for (double T : Ts) {
-        for (int j = 1; j + 1 < (int)Ks.size(); ++j) {
-            double dK = (Ks[j + 1] - Ks[j - 1]) / 2.0;
-            double density = d2CdK2(Ks[j], T, dK);
+    int nK = static_cast<int>(Ks.size());
+    int nT = static_cast<int>(Ts.size());
+    
+    // Determine if parallelization is worthwhile
+    int totalWork = nK * nT;
+    bool useParallel = config_.enableParallelization && 
+                       totalWork >= config_.minWorkPerThread;
+    
+    // Thread-local violation storage
+    std::vector<std::vector<ArbViolation>> threadViolations;
+    
+#ifdef VOL_ARB_OPENMP_ENABLED
+    if (useParallel) {
+        if (config_.numThreads > 0) {
+            omp_set_num_threads(config_.numThreads);
+        }
+        int maxThreads = omp_get_max_threads();
+        threadViolations.resize(maxThreads);
+        
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+            std::vector<ArbViolation>& localViols = threadViolations[tid];
             
-            if (density < config_.butterflyThreshold) {
-                ArbViolation viol;
-                viol.type = ArbType::ButterflyViolation;
-                viol.strike = Ks[j];
-                viol.expiry = T;
-                viol.magnitude = density;
-                viol.threshold = config_.butterflyThreshold;
-                viol.description = "Butterfly: density = " + std::to_string(density) +
-                    " < " + std::to_string(config_.butterflyThreshold) +
-                    " at K=" + std::to_string(Ks[j]) + ", T=" + std::to_string(T);
-                viols.push_back(viol);
+            #pragma omp for schedule(dynamic, 1) nowait
+            for (int i = 0; i < nT; ++i) {
+                double T = Ts[i];
+                
+                for (int j = 1; j + 1 < nK; ++j) {
+                    double dK = (Ks[j + 1] - Ks[j - 1]) / 2.0;
+                    double density = d2CdK2(Ks[j], T, dK);
+                    
+                    if (density < config_.butterflyThreshold) {
+                        ArbViolation viol;
+                        viol.type = ArbType::ButterflyViolation;
+                        viol.strike = Ks[j];
+                        viol.expiry = T;
+                        viol.magnitude = density;
+                        viol.threshold = config_.butterflyThreshold;
+                        viol.description = "Butterfly: density = " + std::to_string(density) +
+                            " < " + std::to_string(config_.butterflyThreshold) +
+                            " at K=" + std::to_string(Ks[j]) + ", T=" + std::to_string(T);
+                        localViols.push_back(viol);
+                    }
+                }
+            }
+        }
+    } else
+#endif
+    {
+        // Sequential fallback (non-OpenMP or small workload)
+        threadViolations.resize(1);
+        std::vector<ArbViolation>& viols = threadViolations[0];
+        
+        for (int i = 0; i < nT; ++i) {
+            double T = Ts[i];
+            for (int j = 1; j + 1 < nK; ++j) {
+                double dK = (Ks[j + 1] - Ks[j - 1]) / 2.0;
+                double density = d2CdK2(Ks[j], T, dK);
+                
+                if (density < config_.butterflyThreshold) {
+                    ArbViolation viol;
+                    viol.type = ArbType::ButterflyViolation;
+                    viol.strike = Ks[j];
+                    viol.expiry = T;
+                    viol.magnitude = density;
+                    viol.threshold = config_.butterflyThreshold;
+                    viol.description = "Butterfly: density = " + std::to_string(density) +
+                        " < " + std::to_string(config_.butterflyThreshold) +
+                        " at K=" + std::to_string(Ks[j]) + ", T=" + std::to_string(T);
+                    viols.push_back(viol);
+                }
             }
         }
     }
-    return viols;
+    
+    // Merge thread-local results
+    std::vector<ArbViolation> allViols;
+    for (const auto& tv : threadViolations) {
+        allViols.insert(allViols.end(), tv.begin(), tv.end());
+    }
+    
+    return allViols;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Enhanced calendar arbitrage check
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 4 OPTIMIZATION #2: OpenMP Parallelization
+// ═══════════════════════════════════════════════════════════════════════════
 // ──────────────────────────────────────────────────────────────────────────────
 std::vector<ArbViolation> ArbitrageDetector::checkCalendar() const {
-    std::vector<ArbViolation> viols;
     const auto& Ks = surface_.strikes();
     const auto& Ts = surface_.expiries();
-
-    for (double K : Ks) {
-        for (int i = 0; i + 1 < (int)Ts.size(); ++i) {
-            double dT = (Ts[i + 1] - Ts[i]) / 2.0;
-            double Teval = (Ts[i] + Ts[i + 1]) / 2.0;
-            double timeDecay = dCdT(K, Teval, dT);
+    int nK = static_cast<int>(Ks.size());
+    int nT = static_cast<int>(Ts.size());
+    
+    int totalWork = nK * nT;
+    bool useParallel = config_.enableParallelization && 
+                       totalWork >= config_.minWorkPerThread;
+    
+    std::vector<std::vector<ArbViolation>> threadViolations;
+    
+#ifdef VOL_ARB_OPENMP_ENABLED
+    if (useParallel) {
+        int maxThreads = omp_get_max_threads();
+        threadViolations.resize(maxThreads);
+        
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+            std::vector<ArbViolation>& localViols = threadViolations[tid];
             
-            if (timeDecay < config_.calendarThreshold) {
-                ArbViolation viol;
-                viol.type = ArbType::CalendarViolation;
-                viol.strike = K;
-                viol.expiry = Teval;
-                viol.magnitude = timeDecay;
-                viol.threshold = config_.calendarThreshold;
-                viol.description = "Calendar: dC/dT = " + std::to_string(timeDecay) +
-                    " < " + std::to_string(config_.calendarThreshold) +
-                    " at K=" + std::to_string(K) + ", T=" + std::to_string(Teval);
-                viols.push_back(viol);
+            #pragma omp for schedule(dynamic, 1) nowait
+            for (int j = 0; j < nK; ++j) {
+                double K = Ks[j];
+                
+                for (int i = 0; i + 1 < nT; ++i) {
+                    double dT = (Ts[i + 1] - Ts[i]) / 2.0;
+                    double Teval = (Ts[i] + Ts[i + 1]) / 2.0;
+                    double timeDecay = dCdT(K, Teval, dT);
+                    
+                    if (timeDecay < config_.calendarThreshold) {
+                        ArbViolation viol;
+                        viol.type = ArbType::CalendarViolation;
+                        viol.strike = K;
+                        viol.expiry = Teval;
+                        viol.magnitude = timeDecay;
+                        viol.threshold = config_.calendarThreshold;
+                        viol.description = "Calendar: dC/dT = " + std::to_string(timeDecay) +
+                            " < " + std::to_string(config_.calendarThreshold) +
+                            " at K=" + std::to_string(K) + ", T=" + std::to_string(Teval);
+                        localViols.push_back(viol);
+                    }
+                }
+            }
+        }
+    } else
+#endif
+    {
+        // Sequential fallback
+        threadViolations.resize(1);
+        std::vector<ArbViolation>& viols = threadViolations[0];
+        
+        for (int j = 0; j < nK; ++j) {
+            double K = Ks[j];
+            for (int i = 0; i + 1 < nT; ++i) {
+                double dT = (Ts[i + 1] - Ts[i]) / 2.0;
+                double Teval = (Ts[i] + Ts[i + 1]) / 2.0;
+                double timeDecay = dCdT(K, Teval, dT);
+                
+                if (timeDecay < config_.calendarThreshold) {
+                    ArbViolation viol;
+                    viol.type = ArbType::CalendarViolation;
+                    viol.strike = K;
+                    viol.expiry = Teval;
+                    viol.magnitude = timeDecay;
+                    viol.threshold = config_.calendarThreshold;
+                    viol.description = "Calendar: dC/dT = " + std::to_string(timeDecay) +
+                        " < " + std::to_string(config_.calendarThreshold) +
+                        " at K=" + std::to_string(K) + ", T=" + std::to_string(Teval);
+                    viols.push_back(viol);
+                }
             }
         }
     }
-    return viols;
+    
+    // Merge thread-local results
+    std::vector<ArbViolation> allViols;
+    for (const auto& tv : threadViolations) {
+        allViols.insert(allViols.end(), tv.begin(), tv.end());
+    }
+    
+    return allViols;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

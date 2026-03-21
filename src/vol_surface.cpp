@@ -10,6 +10,90 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 4 OPTIMIZATION #1: LRU Cache Implementation
+// ═══════════════════════════════════════════════════════════════════════════
+
+bool VolSurface::getCached(const CacheKey& key, double& value) const {
+    std::shared_lock<std::shared_mutex> lock(cacheMutex_);
+    
+    auto it = cacheMap_.find(key);
+    if (it == cacheMap_.end()) {
+        ++cacheStats_.misses;
+        return false;
+    }
+    
+    // Move to front (most recently used) - need exclusive lock
+    lock.unlock();
+    std::unique_lock<std::shared_mutex> writeLock(cacheMutex_);
+    
+    // Re-check after acquiring write lock
+    it = cacheMap_.find(key);
+    if (it == cacheMap_.end()) {
+        ++cacheStats_.misses;
+        return false;
+    }
+    
+    value = it->second->second;
+    cacheList_.splice(cacheList_.begin(), cacheList_, it->second);
+    ++cacheStats_.hits;
+    return true;
+}
+
+void VolSurface::putCache(const CacheKey& key, double value) const {
+    std::unique_lock<std::shared_mutex> lock(cacheMutex_);
+    
+    // Check if already exists
+    auto it = cacheMap_.find(key);
+    if (it != cacheMap_.end()) {
+        // Update value and move to front
+        it->second->second = value;
+        cacheList_.splice(cacheList_.begin(), cacheList_, it->second);
+        return;
+    }
+    
+    // Evict if at capacity
+    while (cacheList_.size() >= maxCacheSize_) {
+        auto last = cacheList_.back();
+        cacheMap_.erase(last.first);
+        cacheList_.pop_back();
+        ++cacheStats_.evictions;
+    }
+    
+    // Insert new entry
+    cacheList_.emplace_front(key, value);
+    cacheMap_[key] = cacheList_.begin();
+}
+
+VolSurface::CacheStats VolSurface::getCacheStats() const {
+    std::shared_lock<std::shared_mutex> lock(cacheMutex_);
+    return cacheStats_;
+}
+
+void VolSurface::clearCache() {
+    std::unique_lock<std::shared_mutex> lock(cacheMutex_);
+    cacheList_.clear();
+    cacheMap_.clear();
+    cacheStats_ = CacheStats{};
+}
+
+void VolSurface::setCacheSize(size_t maxEntries) {
+    std::unique_lock<std::shared_mutex> lock(cacheMutex_);
+    maxCacheSize_ = maxEntries;
+    
+    // Evict if over new limit
+    while (cacheList_.size() > maxCacheSize_) {
+        auto last = cacheList_.back();
+        cacheMap_.erase(last.first);
+        cacheList_.pop_back();
+        ++cacheStats_.evictions;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// END PHASE 4 OPTIMIZATION #1
+// ═══════════════════════════════════════════════════════════════════════════
+
 VolSurface::VolSurface(const std::vector<Quote>& quotes, const MarketData& marketData)
     : marketData_(marketData)
 {
@@ -69,6 +153,22 @@ VolSurface::VolSurface(const std::vector<Quote>& quotes, const MarketData& marke
 }
 
 double VolSurface::impliedVol(double strike, double expiry) const {
+    // Check cache first
+    CacheKey key{strike, expiry, CacheKey::Type::IV};
+    double cached;
+    if (getCached(key, cached)) {
+        return cached;
+    }
+    
+    // Compute uncached
+    double result = impliedVolUncached(strike, expiry);
+    
+    // Cache result
+    putCache(key, result);
+    return result;
+}
+
+double VolSurface::impliedVolUncached(double strike, double expiry) const {
     double K = std::clamp(strike,  strikes_.front(), strikes_.back());
     double T = std::clamp(expiry,  expiries_.front(), expiries_.back());
 
@@ -104,19 +204,101 @@ double VolSurface::normalPDF(double x) {
 }
 
 double VolSurface::bsCall(double S, double K, double T, double sigma, double r, double q) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 5 ROBUSTNESS #3: Black-Scholes Overflow Protection
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Edge case: expired or zero vol -> intrinsic value
     if (T <= 0.0 || sigma <= 0.0) return std::max(S - K, 0.0);
+    
+    // Validate inputs to prevent NaN/Inf propagation
+    if (S <= 0.0 || K <= 0.0 || !std::isfinite(S) || !std::isfinite(K)) {
+        return 0.0;
+    }
+    
+    // Clamp extreme values to prevent overflow
+    constexpr double MAX_EXPIRY = 100.0;      // 100 years
+    constexpr double MAX_VOL = 10.0;          // 1000% vol
+    constexpr double MAX_RATE = 1.0;          // 100% rate
+    constexpr double MAX_D = 10.0;            // d1/d2 threshold for CDF saturation
+    
+    T = std::min(T, MAX_EXPIRY);
+    sigma = std::clamp(sigma, 1e-6, MAX_VOL);
+    r = std::clamp(r, -MAX_RATE, MAX_RATE);
+    q = std::clamp(q, -MAX_RATE, MAX_RATE);
+    
     double sqrtT = std::sqrt(T);
-    double d1 = (std::log(S / K) + (r - q + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+    double log_moneyness = std::log(S / K);
+    
+    // Protect against extreme log values
+    if (!std::isfinite(log_moneyness)) {
+        return (S > K) ? S - K : 0.0;
+    }
+    
+    double d1 = (log_moneyness + (r - q + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
     double d2 = d1 - sigma * sqrtT;
-    return S * std::exp(-q * T) * normalCDF(d1) - K * std::exp(-r * T) * normalCDF(d2);
+    
+    // Clamp d1/d2 to prevent CDF from returning exactly 0 or 1 (causes issues)
+    d1 = std::clamp(d1, -MAX_D, MAX_D);
+    d2 = std::clamp(d2, -MAX_D, MAX_D);
+    
+    // Safe exponential with overflow protection
+    double disc_S = std::exp(std::clamp(-q * T, -700.0, 700.0));
+    double disc_K = std::exp(std::clamp(-r * T, -700.0, 700.0));
+    
+    double result = S * disc_S * normalCDF(d1) - K * disc_K * normalCDF(d2);
+    
+    // Final sanity check
+    return std::isfinite(result) ? std::max(result, 0.0) : std::max(S - K, 0.0);
 }
 
 double VolSurface::bsPut(double S, double K, double T, double sigma, double r, double q) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 5 ROBUSTNESS #3: Black-Scholes Overflow Protection
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Edge case: expired or zero vol -> intrinsic value
     if (T <= 0.0 || sigma <= 0.0) return std::max(K - S, 0.0);
+    
+    // Validate inputs to prevent NaN/Inf propagation
+    if (S <= 0.0 || K <= 0.0 || !std::isfinite(S) || !std::isfinite(K)) {
+        return 0.0;
+    }
+    
+    // Clamp extreme values to prevent overflow
+    constexpr double MAX_EXPIRY = 100.0;      // 100 years
+    constexpr double MAX_VOL = 10.0;          // 1000% vol
+    constexpr double MAX_RATE = 1.0;          // 100% rate
+    constexpr double MAX_D = 10.0;            // d1/d2 threshold for CDF saturation
+    
+    T = std::min(T, MAX_EXPIRY);
+    sigma = std::clamp(sigma, 1e-6, MAX_VOL);
+    r = std::clamp(r, -MAX_RATE, MAX_RATE);
+    q = std::clamp(q, -MAX_RATE, MAX_RATE);
+    
     double sqrtT = std::sqrt(T);
-    double d1 = (std::log(S / K) + (r - q + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+    double log_moneyness = std::log(S / K);
+    
+    // Protect against extreme log values
+    if (!std::isfinite(log_moneyness)) {
+        return (K > S) ? K - S : 0.0;
+    }
+    
+    double d1 = (log_moneyness + (r - q + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
     double d2 = d1 - sigma * sqrtT;
-    return K * std::exp(-r * T) * normalCDF(-d2) - S * std::exp(-q * T) * normalCDF(-d1);
+    
+    // Clamp d1/d2 to prevent CDF from returning exactly 0 or 1 (causes issues)
+    d1 = std::clamp(d1, -MAX_D, MAX_D);
+    d2 = std::clamp(d2, -MAX_D, MAX_D);
+    
+    // Safe exponential with overflow protection
+    double disc_S = std::exp(std::clamp(-q * T, -700.0, 700.0));
+    double disc_K = std::exp(std::clamp(-r * T, -700.0, 700.0));
+    
+    double result = K * disc_K * normalCDF(-d2) - S * disc_S * normalCDF(-d1);
+    
+    // Final sanity check
+    return std::isfinite(result) ? std::max(result, 0.0) : std::max(K - S, 0.0);
 }
 
 double VolSurface::forward(double expiry) const {
@@ -128,11 +310,43 @@ double VolSurface::discountFactor(double expiry) const {
 }
 
 double VolSurface::callPrice(double strike, double expiry) const {
+    // Check cache first
+    CacheKey key{strike, expiry, CacheKey::Type::CallPrice};
+    double cached;
+    if (getCached(key, cached)) {
+        return cached;
+    }
+    
+    // Compute uncached
+    double result = callPriceUncached(strike, expiry);
+    
+    // Cache result
+    putCache(key, result);
+    return result;
+}
+
+double VolSurface::callPriceUncached(double strike, double expiry) const {
     return bsCall(marketData_.spot, strike, expiry, impliedVol(strike, expiry), 
                   marketData_.riskFreeRate, marketData_.dividendYield);
 }
 
 double VolSurface::putPrice(double strike, double expiry) const {
+    // Check cache first
+    CacheKey key{strike, expiry, CacheKey::Type::PutPrice};
+    double cached;
+    if (getCached(key, cached)) {
+        return cached;
+    }
+    
+    // Compute uncached
+    double result = putPriceUncached(strike, expiry);
+    
+    // Cache result
+    putCache(key, result);
+    return result;
+}
+
+double VolSurface::putPriceUncached(double strike, double expiry) const {
     return bsPut(marketData_.spot, strike, expiry, impliedVol(strike, expiry),
                  marketData_.riskFreeRate, marketData_.dividendYield);
 }

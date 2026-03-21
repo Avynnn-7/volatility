@@ -1,0 +1,10 @@
+^C:\USERS\STARS\ONEDRIVE\DESKTOP\VOLATILITY\VOL_ARB_CLAUDE\VOL_ARB\CMAKELISTS.TXT
+setlocal
+C:\Cmake\bin\cmake.exe -SC:/Users/stars/OneDrive/Desktop/volatility/vol_arb_claude/vol_arb -BC:/Users/stars/OneDrive/Desktop/volatility/vol_arb_claude/vol_arb/build --check-stamp-file C:/Users/stars/OneDrive/Desktop/volatility/vol_arb_claude/vol_arb/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

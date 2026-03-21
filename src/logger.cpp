@@ -10,11 +10,33 @@ Logger& Logger::getInstance() {
 }
 
 void Logger::setLogFile(const std::string& filename) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 5 ROBUSTNESS #8: File I/O Verification
+    // ═══════════════════════════════════════════════════════════════════════════
     std::lock_guard<std::mutex> lock(mutex_);
+    
     if (logFile_.is_open()) {
         logFile_.close();
     }
+    
     logFile_.open(filename, std::ios::app);
+    
+    // Verify file was opened successfully
+    if (!logFile_.is_open()) {
+        std::cerr << "ERROR: Failed to open log file: " << filename << std::endl;
+        std::cerr << "       Logging to console only." << std::endl;
+        return;
+    }
+    
+    // Verify file is writable by writing a test message
+    logFile_ << "[" << getCurrentTimestamp() << "] INFO: Log file opened: " << filename << std::endl;
+    logFile_.flush();
+    
+    if (logFile_.fail()) {
+        std::cerr << "ERROR: Log file is not writable: " << filename << std::endl;
+        logFile_.close();
+        return;
+    }
 }
 
 void Logger::setLogLevel(LogLevel level) {
@@ -25,34 +47,6 @@ void Logger::setLogLevel(LogLevel level) {
 void Logger::enableConsoleOutput(bool enable) {
     std::lock_guard<std::mutex> lock(mutex_);
     consoleOutput_ = enable;
-}
-
-template<typename... Args>
-void Logger::log(LogLevel level, const std::string& format, Args... args) {
-    if (level < currentLevel_) return;
-    
-    std::lock_guard<std::mutex> lock(mutex_);
-    
-    // Format message
-    int size = std::snprintf(nullptr, 0, format.c_str(), args...) + 1;
-    std::unique_ptr<char[]> buf(new char[size]);
-    std::snprintf(buf.get(), size, format.c_str(), args...);
-    std::string message(buf.get(), buf.get() + size - 1);
-    
-    // Add timestamp and level
-    std::string logEntry = "[" + getCurrentTimestamp() + "] " + 
-                          levelToString(level) + ": " + message;
-    
-    // Output to console
-    if (consoleOutput_) {
-        std::cout << logEntry << std::endl;
-    }
-    
-    // Output to file
-    if (logFile_.is_open()) {
-        logFile_ << logEntry << std::endl;
-        logFile_.flush();
-    }
 }
 
 void Logger::debug(const std::string& message) {

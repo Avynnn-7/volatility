@@ -10,6 +10,11 @@ ConfigManager& ConfigManager::getInstance() {
 }
 
 bool ConfigManager::loadFromFile(const std::string& filename) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 5 ROBUSTNESS #6: Thread Safety - Lock during file load
+    // ═══════════════════════════════════════════════════════════════════════════
+    std::lock_guard<std::mutex> lock(mutex_);
+    
     try {
         std::ifstream file(filename);
         if (!file.is_open()) {
@@ -34,6 +39,11 @@ bool ConfigManager::loadFromFile(const std::string& filename) {
 }
 
 bool ConfigManager::saveToFile(const std::string& filename) const {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 5 ROBUSTNESS #6: Thread Safety - Lock during file save
+    // ═══════════════════════════════════════════════════════════════════════════
+    std::lock_guard<std::mutex> lock(mutex_);
+    
     try {
         nlohmann::json j;
         
@@ -57,6 +67,11 @@ bool ConfigManager::saveToFile(const std::string& filename) const {
 
 template<typename T>
 T ConfigManager::get(const std::string& key, const T& defaultValue) const {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 5 ROBUSTNESS #6: Thread Safety - Lock during read
+    // ═══════════════════════════════════════════════════════════════════════════
+    std::lock_guard<std::mutex> lock(mutex_);
+    
     auto it = configMap_.find(key);
     if (it == configMap_.end()) {
         return defaultValue;
@@ -72,6 +87,10 @@ T ConfigManager::get(const std::string& key, const T& defaultValue) const {
 
 template<typename T>
 void ConfigManager::set(const std::string& key, const T& value) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 5 ROBUSTNESS #6: Thread Safety - Lock during write
+    // ═══════════════════════════════════════════════════════════════════════════
+    std::lock_guard<std::mutex> lock(mutex_);
     configMap_[key] = value;
 }
 
@@ -87,14 +106,17 @@ template void ConfigManager::set<double>(const std::string&, const double&);
 template void ConfigManager::set<std::string>(const std::string&, const std::string&);
 
 bool ConfigManager::has(const std::string& key) const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return configMap_.find(key) != configMap_.end();
 }
 
 void ConfigManager::remove(const std::string& key) {
+    std::lock_guard<std::mutex> lock(mutex_);
     configMap_.erase(key);
 }
 
 std::vector<std::string> ConfigManager::getKeys() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     std::vector<std::string> keys;
     for (const auto& [key, value] : configMap_) {
         keys.push_back(key);
@@ -103,6 +125,8 @@ std::vector<std::string> ConfigManager::getKeys() const {
 }
 
 void ConfigManager::loadDefaults() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
     // Data handling defaults
     configMap_["data.min_vol"] = 0.01;
     configMap_["data.max_vol"] = 3.0;
@@ -131,6 +155,7 @@ void ConfigManager::loadDefaults() {
 }
 
 bool ConfigManager::validate() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     bool valid = true;
     
     // Validate ranges
@@ -158,6 +183,8 @@ bool ConfigManager::validate() const {
 }
 
 void ConfigManager::print() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
     std::cout << "\n=== Configuration ===" << std::endl;
     
     // Group by prefix

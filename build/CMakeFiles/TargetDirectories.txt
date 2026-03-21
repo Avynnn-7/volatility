@@ -1,0 +1,8 @@
+C:/Users/stars/OneDrive/Desktop/volatility/vol_arb_claude/vol_arb/build/CMakeFiles/vol_arb.dir
+C:/Users/stars/OneDrive/Desktop/volatility/vol_arb_claude/vol_arb/build/CMakeFiles/vol_api_server.dir
+C:/Users/stars/OneDrive/Desktop/volatility/vol_arb_claude/vol_arb/build/CMakeFiles/vol_benchmark.dir
+C:/Users/stars/OneDrive/Desktop/volatility/vol_arb_claude/vol_arb/build/CMakeFiles/vol_tests.dir
+C:/Users/stars/OneDrive/Desktop/volatility/vol_arb_claude/vol_arb/build/CMakeFiles/RUN_TESTS.dir
+C:/Users/stars/OneDrive/Desktop/volatility/vol_arb_claude/vol_arb/build/CMakeFiles/INSTALL.dir
+C:/Users/stars/OneDrive/Desktop/volatility/vol_arb_claude/vol_arb/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/stars/OneDrive/Desktop/volatility/vol_arb_claude/vol_arb/build/CMakeFiles/ZERO_CHECK.dir

@@ -12,22 +12,38 @@
 #include "local_vol.hpp"   // put this at the top with the other includes
 
 // ── Load quotes from JSON file ────────────────────────────────────────────────
-static std::pair<std::vector<Quote>, double> loadQuotes(const std::string& path) {
+static std::pair<std::vector<Quote>, MarketData> loadQuotes(const std::string& path) {
     std::ifstream f(path);
     if (!f.is_open())
-        throw std::runtime_error("Cannot open: " + path);
+        throw std::runtime_error("Cannot open file: " + path);
+    
     nlohmann::json j;
-    f >> j;
+    try {
+        f >> j;
+    } catch (const nlohmann::json::exception& e) {
+        throw std::runtime_error("JSON parse error: " + std::string(e.what()));
+    }
 
-    double spot = j["spot"].get<double>();
+    // Extract market data with defaults if not present
+    MarketData marketData{
+        j["spot"].get<double>(),
+        j.value("riskFreeRate", 0.05),      // Default 5% if not in JSON
+        j.value("dividendYield", 0.02),     // Default 2% if not in JSON
+        j.value("valuationDate", "2024-01-01"),
+        j.value("currency", "USD")
+    };
+    
+    // Load quotes
     std::vector<Quote> quotes;
-    for (auto& q : j["quotes"])
+    for (auto& q : j["quotes"]) {
         quotes.push_back({
             q["strike"].get<double>(),
             q["expiry"].get<double>(),
             q["iv"].get<double>()
         });
-    return {quotes, spot};
+    }
+    
+    return {quotes, marketData};
 }
 
 int main(int argc, char* argv[]) {
@@ -39,12 +55,15 @@ int main(int argc, char* argv[]) {
 
     // ── 1. Load market data ───────────────────────────────────────────────────
     std::cout << "── Step 1: Loading market quotes from " << dataPath << "\n";
-    auto [quotes, spot] = loadQuotes(dataPath);
-    std::cout << "   Loaded " << quotes.size() << " quotes, spot = " << spot << "\n";
+    auto [quotes, marketData] = loadQuotes(dataPath);
+    std::cout << "   Loaded " << quotes.size() << " quotes\n";
+    std::cout << "   Spot:           " << marketData.spot << "\n";
+    std::cout << "   Risk-free rate: " << (marketData.riskFreeRate * 100) << "%\n";
+    std::cout << "   Div yield:      " << (marketData.dividendYield * 100) << "%\n";
 
     // ── 2. Build market surface ───────────────────────────────────────────────
     std::cout << "\n── Step 2: Building implied volatility surface\n";
-    VolSurface marketSurface(quotes, spot);
+    VolSurface marketSurface(quotes, marketData);
     marketSurface.print();
 
     // ── Build flat ivMarketVec once — used in Steps 4 and 7 ──────────────────

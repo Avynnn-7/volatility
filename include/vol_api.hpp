@@ -1,3 +1,33 @@
+/**
+ * @file vol_api.hpp
+ * @brief High-level API for volatility arbitrage operations
+ * @author vol_arb Team
+ * @version 2.0
+ * @date 2024
+ *
+ * Provides the main API interface for external integration:
+ * - Singleton API with thread-safe operations
+ * - Request/response structures for batch processing
+ * - REST API handler for web integration
+ * - Performance optimization utilities
+ *
+ * ## Architecture
+ * @code
+ * ┌──────────────┐     ┌─────────────────────┐     ┌──────────────┐
+ * │  REST Client │ ──▶ │  RestAPIHandler     │ ──▶ │ VolatilityArbitrageAPI │
+ * └──────────────┘     └─────────────────────┘     └──────────────┘
+ *                                                          │
+ *                      ┌───────────────────────────────────┼───────────────────┐
+ *                      ▼                                   ▼                   ▼
+ *              ┌──────────────┐                 ┌──────────────┐     ┌──────────────┐
+ *              │  VolSurface  │                 │  QPSolver    │     │  Detector    │
+ *              └──────────────┘                 └──────────────┘     └──────────────┘
+ * @endcode
+ *
+ * @see DataHandler for data loading
+ * @see QPSolver for arbitrage correction
+ */
+
 #pragma once
 #include "vol_surface.hpp"
 #include "arbitrage_detector.hpp"
@@ -13,6 +43,10 @@
 #include <thread>
 #include <future>
 #include <mutex>
+#include <queue>
+#include <condition_variable>
+#include <atomic>
+#include <map>
 
 // API response structures
 struct ApiResponse {
@@ -183,13 +217,13 @@ public:
     // Error handling
     std::string createErrorResponse(const std::string& error, int httpCode = 400);
     std::string createSuccessResponse(const std::string& data);
+    
+    // JSON parsing helpers (made public for external use)
+    ArbitrageCheckRequest parseArbitrageRequest(const std::string& json);
+    std::string serializeResponse(const ApiResponse& response);
 
 private:
     VolatilityArbitrageAPI& api_ = VolatilityArbitrageAPI::getInstance();
-    
-    // JSON parsing helpers
-    ArbitrageCheckRequest parseArbitrageRequest(const std::string& json);
-    std::string serializeResponse(const ApiResponse& response);
 };
 
 // Performance optimization utilities
@@ -226,7 +260,4 @@ public:
     submitAsync(Func&& func, Args&&... args);
     
     void processBatch(const std::vector<std::function<void()>>& tasks);
-    
-private:
-    static thread_pool pool_; // Would need a thread pool implementation
 };

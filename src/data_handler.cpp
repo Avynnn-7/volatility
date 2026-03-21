@@ -211,16 +211,33 @@ std::pair<std::vector<Quote>, MarketData> DataHandler::loadFromCSV() const {
         }
         
         if (row.size() >= 3) {
-            Quote quote;
-            quote.strike = std::stod(row[0]);
-            quote.expiry = std::stod(row[1]);
-            quote.iv = std::stod(row[2]);
-            
-            if (row.size() > 3) quote.bid = std::stod(row[3]);
-            if (row.size() > 4) quote.ask = std::stod(row[4]);
-            if (row.size() > 5) quote.volume = std::stod(row[5]);
-            
-            quotes.push_back(quote);
+            // ═══════════════════════════════════════════════════════════════════════════
+            // PHASE 5 ROBUSTNESS #5: CSV Parsing Error Recovery
+            // Wrap std::stod in try/catch to handle malformed numeric data gracefully
+            // ═══════════════════════════════════════════════════════════════════════════
+            try {
+                Quote quote;
+                quote.strike = std::stod(row[0]);
+                quote.expiry = std::stod(row[1]);
+                quote.iv = std::stod(row[2]);
+                
+                if (row.size() > 3) quote.bid = std::stod(row[3]);
+                if (row.size() > 4) quote.ask = std::stod(row[4]);
+                if (row.size() > 5) quote.volume = std::stod(row[5]);
+                
+                // Basic validation before adding
+                if (quote.strike > 0 && quote.expiry > 0 && quote.iv > 0) {
+                    quotes.push_back(quote);
+                }
+            } catch (const std::invalid_argument& e) {
+                // Skip rows with non-numeric data (log if needed)
+                std::cerr << "Warning: Skipping CSV row with invalid numeric data: " << line << std::endl;
+                continue;
+            } catch (const std::out_of_range& e) {
+                // Skip rows with values too large for double
+                std::cerr << "Warning: Skipping CSV row with out-of-range value: " << line << std::endl;
+                continue;
+            }
         }
     }
     
@@ -320,14 +337,24 @@ void DataHandler::calculateQualityMetrics(const std::vector<Quote>& original,
                                       const std::vector<Quote>& cleaned) {
     qualityMetrics_.totalQuotes = static_cast<int>(original.size());
     qualityMetrics_.validQuotes = static_cast<int>(cleaned.size());
-    qualityMetrics_.duplicateQuotes = qualityMetrics_.totalQuotes - qualityMetrics_.validQuotes;
+    
+    // Don't recalculate duplicateQuotes - already set by removeDuplicates()
+    // Total rejected includes duplicates + invalid + outliers
+    qualityMetrics_.rejectedQuotes = qualityMetrics_.totalQuotes - qualityMetrics_.validQuotes;
+    
     qualityMetrics_.completenessRatio = static_cast<double>(qualityMetrics_.validQuotes) / 
                                         qualityMetrics_.totalQuotes;
     
     // Calculate consistency score based on volatility patterns
     if (!cleaned.empty()) {
         auto volStats = calculateVolatilityStats(cleaned);
-        double cv = volStats[1] / volStats[0]; // Coefficient of variation
+        double mean = volStats[0];
+        double stdDev = volStats[1];
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // PHASE 5 ROBUSTNESS #9: Numerical Stability - Protect division by zero
+        // ═══════════════════════════════════════════════════════════════════════════
+        double cv = (mean > 1e-10) ? stdDev / mean : 0.0; // Coefficient of variation
         qualityMetrics_.consistencyScore = std::max(0.0, 1.0 - cv);
     }
     
@@ -344,7 +371,16 @@ void DataHandler::calculateQualityMetrics(const std::vector<Quote>& original,
 }
 
 double DataHandler::calculateZScore(double value, double mean, double stdDev) const {
-    return stdDev > 0 ? (value - mean) / stdDev : 0.0;
+    // Protect against division by zero AND very small stdDev
+    // If stdDev is below threshold, data is essentially constant (no real outliers)
+    // For implied volatility, 1e-6 = 0.0001% is well below any meaningful variation
+    const double MIN_STDDEV = 1e-6;
+    
+    if (stdDev < MIN_STDDEV) {
+        return 0.0;  // Data is constant - no outliers
+    }
+    
+    return (value - mean) / stdDev;
 }
 
 bool DataHandler::isOutlier(double value, double mean, double stdDev) const {
@@ -432,7 +468,10 @@ CSVFeed::CSVFeed(const std::string& filePath) : filePath_(filePath) {}
 
 bool CSVFeed::connect() {
     try {
-        DataHandler handler{{.source = DataSource::CSV_FILE, .filePath = filePath_}};
+        DataHandler::Config config;
+        config.source = DataSource::CSV_FILE;
+        config.filePath = filePath_;
+        DataHandler handler{config};
         std::tie(cachedQuotes_, cachedMarketData_) = handler.loadData();
         connected_ = true;
         return true;
