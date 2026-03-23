@@ -1,0 +1,11 @@
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\main.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Debug\main.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\vol_surface.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Debug\vol_surface.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\arbitrage_detector.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Debug\arbitrage_detector.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\qp_solver.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Debug\qp_solver.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\dual_certificate.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Debug\dual_certificate.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\local_vol.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Debug\local_vol.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\svi_surface.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Debug\svi_surface.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\data_handler.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Debug\data_handler.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\logger.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Debug\logger.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\config_manager.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Debug\config_manager.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\vol_api.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Debug\vol_api.obj
