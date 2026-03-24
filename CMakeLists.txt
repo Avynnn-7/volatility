@@ -41,6 +41,8 @@ set(LIB_SOURCES
     src/logger.cpp
     src/config_manager.cpp
     src/vol_api.cpp
+    src/profit_advisor.cpp
+    src/upstox_client.cpp
 )
 
 # ── Include directories ─────────────────────────────────────────────────────────

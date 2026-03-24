@@ -100,19 +100,7 @@ static double computeOptimalStepK(const VolSurface& surface, double K, double T)
     return std::clamp(h_opt, h_min, h_max);
 }
 
-// Legacy fixed step functions (fallback)
-static double dK_step(const VolSurface& s) {
-    const auto& K = s.strikes();
-    if (K.empty()) return 1.0;  // Fallback for empty vector
-    if (K.size() == 1) return 0.01 * K[0];  // Single element: 1% of strike
-    return 0.01 * (K.back() - K.front());
-}
-static double dT_step(const VolSurface& s) {
-    const auto& T = s.expiries();
-    if (T.empty()) return 0.01;  // Fallback for empty vector
-    if (T.size() == 1) return 0.01 * T[0];  // Single element: 1% of expiry
-    return 0.01 * (T.back() - T.front());
-}
+// Legacy fixed step functions (fallback) removed to fix unused warnings
 
 double LocalVolSurface::dCdT(double K, double T) const {
     // ═══════════════════════════════════════════════════════════════════════════
