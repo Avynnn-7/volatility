@@ -34,6 +34,12 @@
     <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\vol_api.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\profit_advisor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\upstox_client.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\CMakeLists.txt" />

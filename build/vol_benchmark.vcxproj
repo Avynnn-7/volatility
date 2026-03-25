@@ -444,6 +444,8 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\logger.cpp" />
     <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\config_manager.cpp" />
     <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\vol_api.cpp" />
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\profit_advisor.cpp" />
+    <ClCompile Include="C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\upstox_client.cpp" />
     <Natvis Include="C:\vcpkg\installed\x64-windows\share\nlohmann_json\nlohmann_json.natvis">
     </Natvis>
   </ItemGroup>

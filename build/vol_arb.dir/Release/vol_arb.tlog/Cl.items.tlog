@@ -9,3 +9,5 @@ C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\data_handl
 C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\logger.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Release\logger.obj
 C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\config_manager.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Release\config_manager.obj
 C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\vol_api.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Release\vol_api.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\profit_advisor.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Release\profit_advisor.obj
+C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\src\upstox_client.cpp;C:\Users\stars\OneDrive\Desktop\volatility\vol_arb_claude\vol_arb\build\vol_arb.dir\Release\upstox_client.obj
