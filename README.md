@@ -48,3 +48,7 @@ cmake --build . --config Release
 ## License
 
 This project is licensed under the MIT License.
+
+## Creator
+
+**Avynnn**
